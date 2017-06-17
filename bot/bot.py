@@ -27,9 +27,10 @@ def start_handler(bot, update):
     if chat_id < 0:
         # Prevent working in groups
         return
-    update.message.reply_text('Hi!\n Чтобы подписаться на обновления используй команду /subscribe %user_id%\n'
-                              + 'Для получения id исаользуй `$(\'li.players__item[style="background-color: #0858a8"]\').attr(\'id\')` ' +
-                              'в консоле браузера на странице с результатами... пока так...')
+    update.message.reply_text('Hi!\nЧтобы подписаться на обновления своих результатов используй команду `/subscribe user_id` .\n\n'
+                              + 'Для получения `user_id` в консоле браузера на странице с результатами выполни: '
+                              + ' ```\n$(\'li.players__item[style="background-color: #0858a8"]\').attr(\'id\') ```\n\n'
+                              + 'Пока так...', parse_mode='Markdown')
 
 
 def error_handler(bot, update, error):
