@@ -1,47 +1,59 @@
-import formatter
-import os
-import json
+import storage
 
-class Notifier():
-    # TODO: remove chart from this class
-    def __init__(self, main_chat_id, subscriptions_file_name, chart):
+
+class Notifier:
+    def __init__(self, subscriptions_file_name):
         self._subscriptions_file_name = subscriptions_file_name
-        self._chart = chart
-        self._main_chat_id = main_chat_id
-        self.subscriptions = self._load_subscriptions()
+        self._subscriptions = storage.load_from_file(self._subscriptions_file_name, {})
 
-    def notify_main_chat(self, bot):
-        top_data = self._chart.get_top_updates()
-        if top_data:
-            message = formatter.format_top(top_data)
-            bot.send_message(chat_id=self._main_chat_id, text=message, parse_mode='Markdown')
+        self._subscriptions_by_chat = {}
+        self._subscriptions_by_type = {}
 
-    def notify_subscribers(self, bot):
-        #TODO: do not notify if changes related only with player own updates.
-        for chat_id, player_id in self.subscriptions.items():
-            update_data, user_data = self._chart.get_personal_updates(player_id)
-            if update_data is not None:
-                message = formatter.format_personal_updates(update_data, user_data)
-                bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+        self._id_counter = 0
 
-    def subscribe(self, chatid, player_id):
-        self.subscriptions[chatid] = player_id
-        self._save_subscriptions()
+        for idx, sub in self._subscriptions.items():
+            idx = int(idx)
+            if idx > self._id_counter:
+                self._id_counter = idx + 1
+            self._add_sub_to_hash_tables(sub)
 
-    def unsubscribe(self, chatid):
-        del self.subscriptions[chatid]
-        self._save_subscriptions()
+    def _add_sub_to_hash_tables(self, sub):
+        chat_subs = self._subscriptions_by_chat.get(sub['chat_id'], [])
+        chat_subs.append(sub)
+        self._subscriptions_by_chat[sub['chat_id']] = chat_subs
 
-    def _load_subscriptions(self):
-        if os.path.exists(self._subscriptions_file_name):
-            with open(self._subscriptions_file_name) as file:
-                try:
-                    return json.load(file)
-                except:
-                    return {}
-        else:
-            return {}
+        type_subs = self._subscriptions_by_type.get(sub['type'], [])
+        type_subs.append(sub)
+        self._subscriptions_by_type[sub['type']] = type_subs
 
-    def _save_subscriptions(self):
-        with open(self._subscriptions_file_name, "w") as file:
-            json.dump(self.subscriptions, file, indent=4)
+    def _remove_sub_from_hash_tables(self, sub):
+        self._subscriptions_by_chat[sub['chat_id']].remove(sub)
+        self._subscriptions_by_type[sub['type']].remove(sub)
+
+    def add_subscription(self, chat_id, stype, data=None):
+        sub = {
+            'id': str(self._id_counter),
+            'chat_id': chat_id,
+            'type': stype,
+            'data': data
+        }
+        self._id_counter += 1
+        self._subscriptions[sub['id']] = sub
+        self._add_sub_to_hash_tables(sub)
+        storage.save_to_file(self._subscriptions_file_name, self._subscriptions)
+
+    def remove_subscription_by_id(self, idx):
+        if idx in self._subscriptions:
+            sub = self._subscriptions[idx]
+            del self._subscriptions[idx]
+            self._remove_sub_from_hash_tables(sub)
+            storage.save_to_file(self._subscriptions_file_name, self._subscriptions)
+
+    def get_subscriptions_by_chat(self, chat_id):
+        return self._subscriptions_by_chat.get(chat_id, [])
+
+    def get_subscriptions_by_type(self, stype):
+        return self._subscriptions_by_type.get(stype, [])
+
+    def get_subscriptions_by_chat_and_type(self, chat_id, stype):
+        return [sub for sub in self._subscriptions_by_chat.get(chat_id, []) if sub['type']==stype]

@@ -1,8 +1,9 @@
-import json
 import logging
 
 from telegram.ext import Updater, CommandHandler
 
+import jobs
+import storage
 from chart import Chart
 from notifier import Notifier
 
@@ -17,20 +18,16 @@ notifier = None
 chart = None
 
 
-def load_config():
-    with open("config.json") as file:
-        return json.load(file)
-
-
 def start_handler(bot, update):
     chat_id = update.message.chat_id
     if chat_id < 0:
         # Prevent working in groups
         return
-    update.message.reply_text('Hi!\nЧтобы подписаться на обновления своих результатов используй команду `/subscribe user_id` .\n\n'
-                              + 'Для получения `user_id` в консоле браузера на странице с результатами выполни: '
-                              + ' ```\n$(\'li.players__item[style="background-color: #0858a8"]\').attr(\'id\') ```\n\n'
-                              + 'Пока так...', parse_mode='Markdown')
+    update.message.reply_text(
+        'Hi!\nЧтобы подписаться на обновления своих результатов используй команду `/subscribe user_id` .\n\n'
+        + 'Для получения `user_id` в консоле браузера на странице с результатами выполни: '
+        + ' ```\n$(\'li.players__item[style="background-color: #0858a8"]\').attr(\'id\') ```\n\n'
+        + 'Пока так...', parse_mode='Markdown')
 
 
 def error_handler(bot, update, error):
@@ -51,11 +48,14 @@ def subscribe_handler(bot, update, args):
         update.message.reply_text('Не могу найти пользователя с данным id')
         return
 
-    if chat_id in notifier.subscriptions:
+    subs = notifier.get_subscriptions_by_chat_and_type(chat_id, 'place_tracking')
+    if subs:
         update.message.reply_text('Сменил подписку на ' + uid)
+        for sub in subs:
+            notifier.remove_subscription_by_id(sub['id'])
     else:
         update.message.reply_text('Подписался')
-    notifier.subscribe(chat_id, uid)
+    notifier.add_subscription(chat_id, 'place_tracking', {'uid': uid})
 
 
 def unsubscribe_handler(bot, update):
@@ -63,32 +63,25 @@ def unsubscribe_handler(bot, update):
     if chat_id < 0:
         # Prevent working in groups
         return
-
-    if chat_id not in notifier.subscriptions:
+    subs = notifier.get_subscriptions_by_chat_and_type(chat_id, 'place_tracking')
+    if subs:
+        for sub in subs:
+            notifier.remove_subscription_by_id(sub['id'])
+        update.message.reply_text('Отписался от обновлений')
+    else:
         update.message.reply_text('Нет активных подписок')
-        return
-
-    notifier.unsubscribe(chat_id)
-    update.message.reply_text('Отписался от обновлений')
-
-
-def gather_ratings(bot, job):
-    job.context['chart'].check_updates()
-
-
-def notify_about_changes(bot, job):
-    # TODO: Threads to prevent waiting on request?...
-    job.context['notifier'].notify_main_chat(bot)
-    job.context['notifier'].notify_subscribers(bot)
-    job.context['chart'].reset_changes()
 
 
 def main():
     global notifier, chart
 
-    config = load_config()
-    chart = Chart(config['ratings_url'], config['users_file_name'], config['top_n_to_track'])
-    notifier = Notifier(config['main_chat_id'], config['subscriptions_file_name'], chart)
+    config = storage.load_from_file('config.json')
+    if config is None:
+        print("Can't open configuration file")
+        return
+
+    chart = Chart(config['ratings_url'], config['users_file_name'])
+    notifier = Notifier(config['subscriptions_file_name'])
     updater = Updater(config['auth_token'])
 
     dp = updater.dispatcher
@@ -98,17 +91,20 @@ def main():
     dp.add_handler(CommandHandler("unsubscribe", unsubscribe_handler))
 
     job_queue = updater.job_queue
-    job_queue.run_repeating(gather_ratings,
+    job_queue.run_repeating(jobs.gather_ratings,
                             config['update_rate'],
                             first=0.0,
-                            context={'chart': chart}
-                            )
-    job_queue.run_repeating(notify_about_changes,
+                            context={
+                                'chart': chart
+                            })
+
+    job_queue.run_repeating(jobs.notify_about_changes,
                             config['notify_rate'],
                             first=0.0,
-                            context={'notifier': notifier,
-                                     'chart': chart}
-                            )
+                            context={
+                                'notifier': notifier,
+                                'chart': chart,
+                            })
 
     updater.start_polling()
     updater.idle()

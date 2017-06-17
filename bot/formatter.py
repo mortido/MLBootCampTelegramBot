@@ -1,27 +1,20 @@
+def format_rating_table_row(row_data):
+    return "{}{}{}{}".format(
+        str(row_data['place']).ljust(4),
+        row_data["name"].ljust(25),
+        str(row_data["score"]).ljust(10),
+        row_data["status"].ljust(4))
+
+
 def format_top(top):
-    table = "\n".join("{}{}{}{}".format(
-        str(i + 1).ljust(3),
-        user["name"].ljust(25),
-        str(user["score"]).ljust(10),
-        user["status"].ljust(4),
-    ) for i, user in enumerate(top))
-    return "Топ обновился!\n```\n" + table + "\n```"
+    table = "\n".join(map(format_rating_table_row, top))
+    return "```\n" + table + "\n```"
 
 
 def format_personal_updates(update_data, user_data):
-    table = "\n".join("{}{}{}{}".format(
-        str(user["place"]).ljust(3),
-        user["name"].ljust(25),
-        str(user["score"]).ljust(10),
-        user["status"].ljust(4),
-    ) for i, user in enumerate(update_data[:10]))
+    table = "\n".join(map(format_rating_table_row, update_data[:10]))
     if len(update_data) > 10:
         table += '\n ...and ' + str(len(update_data) - 10) + ' others'
     table += '\n ...\n'
-    table += "{}{}{}{}".format(
-        str(user_data["place"]).ljust(3),
-        user_data["name"].ljust(25),
-        str(user_data["score"]).ljust(10),
-        user_data["status"].ljust(4),
-    )
-    return "Обходят!!\n```\n" + table + "\n```"
+    table += format_rating_table_row(user_data)
+    return "```\n" + table + "\n```"

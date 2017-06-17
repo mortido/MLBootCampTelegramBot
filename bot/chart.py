@@ -1,8 +1,7 @@
-import json
-import os
-
 import requests
 from lxml import html
+
+import storage
 
 USERS_PATH = '//div[@class="players__items"]/ul/li'
 NAME_PATH = 'div/div[contains(@class, "players__name")]'
@@ -11,11 +10,10 @@ PLACE_PATH = 'div[contains(@class, "players__number")]'
 
 
 class Chart:
-    def __init__(self, rating_url, users_file_name, top_n_to_track):
-        self._top_n_to_track = top_n_to_track
+    def __init__(self, rating_url, users_file_name):
         self._users_file_name = users_file_name
         self._rating_url = rating_url
-        self.users = self._load_users()
+        self.users = storage.load_from_file(self._users_file_name, {})
         self._changes = {}
         self._rating_table = {}
 
@@ -29,9 +27,9 @@ class Chart:
     def reset_changes(self):
         self._changes.clear()
 
-    def get_top_updates(self):
+    def get_top_updates(self, top_n=10):
         has_updates = False
-        for i in range(1, self._top_n_to_track + 1):
+        for i in range(1, top_n + 1):
             uid = self._rating_table[i]
             # Show updates only if there are some changes in positions or new user.
             # Don't bother main chat with scores updates in top N for now.
@@ -43,7 +41,7 @@ class Chart:
             return None
 
         updates = []
-        for i in range(1, self._top_n_to_track + 1):
+        for i in range(1, top_n + 1):
             uid = self._rating_table[i]
             user = self.users[uid]
             status = ''
@@ -54,6 +52,7 @@ class Chart:
                 elif len(user['scores']) == 1:
                     status = '*'
             updates.append({
+                'place': i,
                 'name': user['name'],
                 'score': user['choosen_score'],
                 'status': status
@@ -82,7 +81,7 @@ class Chart:
                 'place': user['place'],
                 'name': user['name'],
                 'score': user['choosen_score'],
-                'status': 'v' + str(abs(change)) # '^v'[change < 0] + str(abs(change)) Always down for now
+                'status': 'v' + str(abs(self._changes[uid]))  # '^v'[change < 0] + str(abs(change)) Always down for now
             }
             return update_data, user_update
         else:
@@ -123,18 +122,4 @@ class Chart:
             self.users[uid]['choosen_score'] = score
             self._rating_table[place] = uid  # AAAAAA counting from 1!!!
 
-        self._save_users()
-
-    def _load_users(self):
-        if os.path.exists(self._users_file_name):
-            with open(self._users_file_name) as file:
-                try:
-                    return json.load(file)
-                except:
-                    return {}
-        else:
-            return {}
-
-    def _save_users(self):
-        with open(self._users_file_name, "w") as file:
-            json.dump(self.users, file, indent=4)
+        storage.save_to_file(self._users_file_name, self.users)
