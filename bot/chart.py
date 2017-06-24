@@ -10,16 +10,15 @@ PLACE_PATH = 'div[contains(@class, "players__number")]'
 
 
 class Chart:
-    def __init__(self, rating_url, users_file_name):
+    def __init__(self, rating_url, users_file_name, warm_start=False):
         self._users_file_name = users_file_name
         self._rating_url = rating_url
         self.users = storage.load_from_file(self._users_file_name, {})
         self._changes = {}
         self._rating_table = {}
 
-        # TODO: update in case updates since last run should be displayed
-        # TODO: (but will show all updates if started first time)
-        self._gather_info(False)
+        # In case if user data already exist and bot should show updates from last start.
+        self._gather_info(warm_start)
 
     def check_updates(self):
         self._gather_info()

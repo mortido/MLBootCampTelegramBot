@@ -25,7 +25,7 @@ def start_handler(bot, update):
         return
     update.message.reply_text(
         'Hi!\nЧтобы подписаться на обновления своих результатов используй команду `/subscribe user_id` .\n\n'
-        + 'Для получения `user_id` в консоле браузера на странице с результатами выполни: '
+        + 'Для получения `user_id` в консоли браузера на странице с результатами выполни: '
         + ' ```\n$(\'li.players__item[style="background-color: #0858a8"]\').attr(\'id\') ```\n\n'
         + 'Пока так...', parse_mode='Markdown')
 
@@ -80,7 +80,7 @@ def main():
         print("Can't open configuration file")
         return
 
-    chart = Chart(config['ratings_url'], config['users_file_name'])
+    chart = Chart(config['ratings_url'], config['users_file_name'], config['warm_start'])
     notifier = Notifier(config['subscriptions_file_name'])
     updater = Updater(config['auth_token'])
 

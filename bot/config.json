@@ -1,10 +1,10 @@
 {
   "auth_token": "TOKEN",
   "ratings_url": "http://mlbootcamp.ru/round/12/rating/",
-  "main_chat_id": "-1001119444135",
   "error_log_chat_id": "_",
+  "warm_start": true,
   "update_rate": 120,
-  "notify_rate": 600,
+  "notify_rate": 1200,
   "users_file_name": "users_data.json",
   "subscriptions_file_name": "subscriptions.json"
 }
